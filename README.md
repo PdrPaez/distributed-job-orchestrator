@@ -49,6 +49,26 @@ docker compose --profile full up --build --scale worker=3
 
 The worker service intentionally has no fixed container name so Compose can scale it.
 
+### Docker Desktop on Windows
+
+Docker Desktop must be configured to use the WSL 2 engine. If `docker info` cannot
+connect to `dockerDesktopLinuxEngine`, verify that WSL has a Linux distribution:
+
+```powershell
+wsl --status
+wsl --list --verbose
+```
+
+If the list is empty, install a distribution from an elevated PowerShell and
+restart Docker Desktop:
+
+```powershell
+wsl --install -d Ubuntu
+```
+
+The real smoke test is intentionally not replaced with an in-process Redis mock;
+it must run against Redis and Celery workers.
+
 ## Demonstration
 
 Create a job with `POST /api/jobs`, watch its persisted status and progress, then inspect `GET /api/jobs/{job_id}` and `GET /api/jobs/{job_id}/events`. Use the same `idempotency_key` twice to receive the same Job. `unstable_demo` with `fail_until_attempt: 2` retries once and succeeds; `fail_until_attempt: 4` reaches `dead_letter` after automatic attempts 1–3, then succeeds on an explicit manual retry.
