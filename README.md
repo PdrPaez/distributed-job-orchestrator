@@ -33,6 +33,14 @@ npm run dev
 
 The API is available at `http://localhost:8000`, OpenAPI documentation at `/docs`, and the dashboard at `http://localhost:5173`.
 
+With Redis and at least one worker running, the real-system smoke flow can be run from the repository root:
+
+```bash
+python scripts/smoke_test.py
+```
+
+The smoke script intentionally requires the external Redis service; the normal automated suite uses direct task execution and does not pretend to reproduce broker delivery.
+
 ## Demonstration
 
 Create a job with `POST /api/jobs`, watch its persisted status and progress, then inspect `GET /api/jobs/{job_id}` and `GET /api/jobs/{job_id}/events`. Use the same `idempotency_key` twice to receive the same Job. `unstable_demo` with `fail_until_attempt: 2` retries once and succeeds; `fail_until_attempt: 4` reaches `dead_letter` after automatic attempts 1–3, then succeeds on an explicit manual retry.
