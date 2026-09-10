@@ -62,13 +62,37 @@ export function App() {
       if (response.ok) setEvents((await response.json()) as JobEvent[]);
     };
     void loadEvents();
-    const websocket = new WebSocket(`${apiBase.replace("http", "ws")}/ws/jobs/${selected.id}`);
-    websocket.onmessage = (message) => {
-      const update = JSON.parse(message.data) as { job: Job };
-      setSelected(update.job);
-      setJobs((current) => current.map((job) => (job.id === update.job.id ? update.job : job)));
+    let websocket: WebSocket | null = null;
+    let reconnectTimer: number | undefined;
+    let reconnectAttempts = 0;
+    let active = true;
+    const connect = () => {
+      if (!active) return;
+      websocket = new WebSocket(`${apiBase.replace("http", "ws")}/ws/jobs/${selected.id}`);
+      websocket.onmessage = (message) => {
+        const update = JSON.parse(message.data) as { job: Job };
+        setSelected(update.job);
+        setJobs((current) => current.map((job) => (job.id === update.job.id ? update.job : job)));
+        if (["succeeded", "failed", "dead_letter"].includes(update.job.status)) {
+          active = false;
+          websocket?.close();
+        }
+      };
+      websocket.onopen = () => { reconnectAttempts = 0; };
+      websocket.onclose = () => {
+        const terminal = ["succeeded", "failed", "dead_letter"].includes(selected.status);
+        if (active && !terminal && reconnectAttempts < 3) {
+          reconnectAttempts += 1;
+          reconnectTimer = window.setTimeout(connect, 1000 * reconnectAttempts);
+        }
+      };
     };
-    return () => websocket.close();
+    connect();
+    return () => {
+      active = false;
+      if (reconnectTimer) window.clearTimeout(reconnectTimer);
+      websocket?.close();
+    };
   }, [selected?.id]);
 
   const submit = async (event: FormEvent) => {
@@ -87,6 +111,18 @@ export function App() {
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Unable to create job");
     }
+  };
+
+  const retrySelected = async () => {
+    if (!selected) return;
+    const response = await fetch(`${apiBase}/api/jobs/${selected.id}/retry`, { method: "POST" });
+    if (!response.ok) {
+      setError(await response.text());
+      return;
+    }
+    const job = (await response.json()) as Job;
+    setSelected(job);
+    await loadJobs();
   };
 
   const statusCards = useMemo(() => Object.entries(stats).filter(([key]) => key !== "total"), [stats]);
@@ -120,7 +156,7 @@ export function App() {
           <button type="submit">Queue job</button>
         </form>
         <section className="panel jobs-panel"><h2>Recent jobs</h2>{jobs.length === 0 ? <p className="muted">No jobs yet.</p> : jobs.map((job) => <button className={`job-row ${selected?.id === job.id ? "selected" : ""}`} key={job.id} onClick={() => setSelected(job)}><span>{job.type}<small>{job.id.slice(0, 8)}</small></span><span>{job.status}<progress max="100" value={job.progress} /></span></button>)}</section>
-        <section className="panel detail"><h2>Job detail</h2>{selected ? <><p className="detail-id">{selected.id}</p><p><b>{selected.status}</b> · attempt {selected.attempt_count}/{selected.max_attempts}</p><progress max="100" value={selected.progress} /><pre>{JSON.stringify(selected.result ?? selected.error_message ?? selected.payload, null, 2)}</pre><h3>Timeline</h3>{events.map((item) => <p className="event" key={item.id}><b>{item.event_type}</b><br />{item.message}<small>{new Date(item.timestamp).toLocaleString()}</small></p>)}</> : <p className="muted">Select a job to inspect its persisted timeline.</p>}</section>
+        <section className="panel detail"><h2>Job detail</h2>{selected ? <><p className="detail-id">{selected.id}</p><p><b>{selected.status}</b> · attempt {selected.attempt_count}/{selected.max_attempts}</p><progress max="100" value={selected.progress} />{["failed", "dead_letter"].includes(selected.status) && <button onClick={retrySelected}>Retry manually</button>}<pre>{JSON.stringify(selected.result ?? selected.error_message ?? selected.payload, null, 2)}</pre><h3>Timeline</h3>{events.map((item) => <p className="event" key={item.id}><b>{item.event_type}</b><br />{item.message}<small>{new Date(item.timestamp).toLocaleString()}</small></p>)}</> : <p className="muted">Select a job to inspect its persisted timeline.</p>}</section>
       </section>
     </main>
   );
