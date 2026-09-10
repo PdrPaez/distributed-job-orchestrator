@@ -163,3 +163,26 @@ def test_unstable_job_retries_dead_letters_and_manual_retry_succeeds(monkeypatch
         assert job.attempt_count == 4
         session.delete(job)
         session.commit()
+
+
+def test_job_events_and_metrics_are_exposed(monkeypatch) -> None:
+    init_db()
+    monkeypatch.setattr(execute_job, "delay", lambda job_id: type("Task", (), {"id": "test-task"})())
+    key = "test-events-metrics"
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/jobs",
+            json={"type": "batch_transform", "payload": {"items": ["alpha"]}, "idempotency_key": key},
+        )
+        events = client.get(f"/api/jobs/{response.json()['id']}/events")
+        metrics = client.get("/metrics")
+
+    assert events.status_code == 200
+    assert [event["event_type"] for event in events.json()] == ["job_created", "queued"]
+    assert metrics.status_code == 200
+    assert "djo_jobs_created_total" in metrics.text
+    with SessionLocal() as session:
+        job = session.scalar(select(Job).where(Job.idempotency_key == key))
+        assert job is not None
+        session.delete(job)
+        session.commit()
