@@ -186,3 +186,26 @@ def test_job_events_and_metrics_are_exposed(monkeypatch) -> None:
         assert job is not None
         session.delete(job)
         session.commit()
+
+
+def test_websocket_sends_current_job_snapshot(monkeypatch) -> None:
+    init_db()
+    monkeypatch.setattr(execute_job, "delay", lambda job_id: type("Task", (), {"id": "test-task"})())
+    key = f"test-websocket-{uuid4()}"
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/jobs",
+            json={"type": "delayed_sum", "payload": {"numbers": [1]}, "idempotency_key": key},
+        )
+        job_id = response.json()["id"]
+        with client.websocket_connect(f"/ws/jobs/{job_id}") as websocket:
+            message = websocket.receive_json()
+
+    assert message["type"] == "job.updated"
+    assert message["job"]["id"] == job_id
+    assert message["job"]["status"] == "queued"
+    with SessionLocal() as session:
+        job = session.scalar(select(Job).where(Job.idempotency_key == key))
+        assert job is not None
+        session.delete(job)
+        session.commit()
