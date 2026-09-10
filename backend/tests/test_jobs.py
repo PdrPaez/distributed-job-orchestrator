@@ -209,3 +209,22 @@ def test_websocket_sends_current_job_snapshot(monkeypatch) -> None:
         assert job is not None
         session.delete(job)
         session.commit()
+
+
+def test_manual_retry_rejects_non_terminal_job(monkeypatch) -> None:
+    init_db()
+    monkeypatch.setattr(execute_job, "delay", lambda job_id: type("Task", (), {"id": "test-task"})())
+    key = f"test-invalid-retry-{uuid4()}"
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/jobs",
+            json={"type": "delayed_sum", "payload": {"numbers": [1]}, "idempotency_key": key},
+        )
+        retry = client.post(f"/api/jobs/{response.json()['id']}/retry")
+
+    assert retry.status_code == 409
+    with SessionLocal() as session:
+        job = session.scalar(select(Job).where(Job.idempotency_key == key))
+        assert job is not None
+        session.delete(job)
+        session.commit()
