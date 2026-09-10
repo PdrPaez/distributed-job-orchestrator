@@ -47,6 +47,7 @@ def create_job(
         max_attempts=get_settings().default_max_attempts,
     )
     session.add(job)
+    session.flush()
     add_event(session, job, "job_created", "Job created")
     add_event(session, job, "queued", "Job queued")
     try:

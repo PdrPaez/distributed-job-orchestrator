@@ -1,5 +1,9 @@
-from fastapi.testclient import TestClient
+from uuid import UUID
 
+from fastapi.testclient import TestClient
+from sqlalchemy import func, select
+
+from app.database.session import SessionLocal, init_db
 from app.jobs.handlers import (
     BatchTransformPayload,
     DelayedSumPayload,
@@ -12,7 +16,8 @@ from app.jobs.handlers import (
 )
 from app.jobs.state import InvalidTransition, transition, validate_progress
 from app.main import app
-from app.models.job import JobStatus
+from app.models.job import Job, JobEvent, JobStatus
+from app.worker.tasks import execute_job
 
 
 def test_delayed_sum_is_deterministic_and_reports_progress() -> None:
@@ -81,3 +86,55 @@ def test_unknown_job_type_is_rejected_at_api_boundary() -> None:
         )
 
     assert response.status_code == 422
+
+
+def test_duplicate_idempotency_returns_one_persisted_job(monkeypatch) -> None:
+    init_db()
+    monkeypatch.setattr(execute_job, "delay", lambda job_id: type("Task", (), {"id": "test-task"})())
+    key = "test-idempotency-key"
+    payload = {"type": "delayed_sum", "payload": {"numbers": [2, 3]}, "idempotency_key": key}
+    with TestClient(app) as client:
+        first = client.post("/api/jobs", json=payload)
+        second = client.post("/api/jobs", json=payload)
+
+    assert first.status_code == second.status_code == 202
+    assert first.json()["id"] == second.json()["id"]
+    with SessionLocal() as session:
+        job = session.scalar(select(Job).where(Job.idempotency_key == key))
+        assert job is not None
+        assert session.scalar(
+            select(func.count(JobEvent.id)).where(
+                JobEvent.job_id == job.id,
+                JobEvent.event_type == "job_created",
+            )
+        ) == 1
+        session.delete(job)
+        session.commit()
+
+
+def test_worker_completes_job_and_ignores_terminal_duplicate(monkeypatch) -> None:
+    init_db()
+    monkeypatch.setattr(execute_job, "delay", lambda job_id: type("Task", (), {"id": "test-task"})())
+    key = "test-worker-job"
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/jobs",
+            json={"type": "delayed_sum", "payload": {"numbers": [4, 5]}, "idempotency_key": key},
+        )
+    job_id = response.json()["id"]
+    execute_job.apply(args=[job_id])
+    execute_job.apply(args=[job_id])
+
+    with SessionLocal() as session:
+        job = session.get(Job, UUID(job_id))
+        assert job is not None
+        assert job.status == JobStatus.SUCCEEDED
+        assert job.attempt_count == 1
+        assert session.scalar(
+            select(func.count(JobEvent.id)).where(
+                JobEvent.job_id == job.id,
+                JobEvent.event_type == "job_succeeded",
+            )
+        ) == 1
+        session.delete(job)
+        session.commit()
