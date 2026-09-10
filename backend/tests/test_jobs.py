@@ -14,6 +14,7 @@ from app.jobs.handlers import (
     run_delayed_sum,
     run_unstable_demo,
 )
+from app.jobs.service import create_job, manually_retry
 from app.jobs.state import InvalidTransition, transition, validate_progress
 from app.main import app
 from app.models.job import Job, JobEvent, JobStatus
@@ -136,5 +137,29 @@ def test_worker_completes_job_and_ignores_terminal_duplicate(monkeypatch) -> Non
                 JobEvent.event_type == "job_succeeded",
             )
         ) == 1
+        session.delete(job)
+        session.commit()
+
+
+def test_unstable_job_retries_dead_letters_and_manual_retry_succeeds(monkeypatch) -> None:
+    init_db()
+    monkeypatch.setattr(execute_job, "apply_async", lambda *args, **kwargs: None)
+    key = "test-dead-letter-recovery"
+    with SessionLocal() as session:
+        job, created = create_job(session, "unstable_demo", {"fail_until_attempt": 4}, key)
+        assert created
+        job_id = str(job.id)
+        execute_job.apply(args=[job_id])
+        execute_job.apply(args=[job_id])
+        execute_job.apply(args=[job_id])
+        session.refresh(job)
+        assert job.status == JobStatus.DEAD_LETTER
+        assert job.attempt_count == 3
+        assert session.scalar(select(func.count(JobEvent.id)).where(JobEvent.job_id == job.id)) >= 7
+        manually_retry(session, job)
+        execute_job.apply(args=[job_id])
+        session.refresh(job)
+        assert job.status == JobStatus.SUCCEEDED
+        assert job.attempt_count == 4
         session.delete(job)
         session.commit()

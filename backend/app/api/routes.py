@@ -98,6 +98,8 @@ def retry_job(job_id: UUID, db: Session = Depends(get_db)) -> JobResponse:
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
+        fail_job(db, job, "Unable to enqueue manual retry")
+        add_event(db, job, "enqueue_failed", "Broker publication failed for manual retry")
         raise HTTPException(status_code=503, detail="Job could not be queued") from exc
     return _response(job)
 
