@@ -21,6 +21,11 @@ def request(method: str, path: str, body: dict | None = None) -> dict:
         return json.loads(response.read())
 
 
+def text_request(path: str) -> str:
+    with urllib.request.urlopen(f"{BASE_URL}{path}", timeout=10) as response:
+        return response.read().decode()
+
+
 def wait_for_terminal(job_id: str, timeout: float = 30) -> dict:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -32,7 +37,8 @@ def wait_for_terminal(job_id: str, timeout: float = 30) -> dict:
 
 
 def main() -> None:
-    request("GET", "/health")
+    health = request("GET", "/health")
+    assert health["status"] == "ok", health
     key = f"smoke-{time.time_ns()}"
     first = request(
         "POST",
@@ -45,23 +51,45 @@ def main() -> None:
         {"type": "delayed_sum", "payload": {"numbers": [1, 2, 3]}, "idempotency_key": key},
     )
     assert first["id"] == duplicate["id"]
-    assert wait_for_terminal(first["id"])["status"] == "succeeded"
+    completed = wait_for_terminal(first["id"])
+    assert completed["status"] == "succeeded"
+    assert completed["result"]["sum"] == 6
+    events = request("GET", f"/api/jobs/{first['id']}/events")
+    assert [event["event_type"] for event in events][:2] == ["job_created", "queued"]
+
+    batch = request(
+        "POST",
+        "/api/jobs",
+        {"type": "batch_transform", "payload": {"items": ["alpha", "beta"]}},
+    )
+    batch_completed = wait_for_terminal(batch["id"])
+    assert batch_completed["status"] == "succeeded"
+    assert [item["output"] for item in batch_completed["result"]["items"]] == ["ALPHA", "BETA"]
 
     retry = request(
         "POST",
         "/api/jobs",
         {"type": "unstable_demo", "payload": {"fail_until_attempt": 2}},
     )
-    assert wait_for_terminal(retry["id"])["status"] == "succeeded"
+    retry_completed = wait_for_terminal(retry["id"])
+    assert retry_completed["status"] == "succeeded"
+    assert retry_completed["attempt_count"] == 2
 
     dead = request(
         "POST",
         "/api/jobs",
         {"type": "unstable_demo", "payload": {"fail_until_attempt": 4}},
     )
-    assert wait_for_terminal(dead["id"])["status"] == "dead_letter"
+    dead_completed = wait_for_terminal(dead["id"])
+    assert dead_completed["status"] == "dead_letter"
+    assert dead_completed["attempt_count"] == 3
     recovered = request("POST", f"/api/jobs/{dead['id']}/retry")
-    assert wait_for_terminal(recovered["id"])["status"] == "succeeded"
+    recovered_completed = wait_for_terminal(recovered["id"])
+    assert recovered_completed["status"] == "succeeded"
+    assert recovered_completed["attempt_count"] == 4
+    metrics = text_request("/metrics")
+    assert "djo_jobs_created_total" in metrics
+    assert "djo_job_retries_total" in metrics
     print("Smoke test passed")
 
 
