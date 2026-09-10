@@ -41,6 +41,14 @@ python scripts/smoke_test.py
 
 The smoke script intentionally requires the external Redis service; the normal automated suite uses direct task execution and does not pretend to reproduce broker delivery.
 
+An optional full Compose run is also available after the local Redis flow is understood:
+
+```bash
+docker compose --profile full up --build --scale worker=3
+```
+
+The worker service intentionally has no fixed container name so Compose can scale it.
+
 ## Demonstration
 
 Create a job with `POST /api/jobs`, watch its persisted status and progress, then inspect `GET /api/jobs/{job_id}` and `GET /api/jobs/{job_id}/events`. Use the same `idempotency_key` twice to receive the same Job. `unstable_demo` with `fail_until_attempt: 2` retries once and succeeds; `fail_until_attempt: 4` reaches `dead_letter` after automatic attempts 1–3, then succeeds on an explicit manual retry.
