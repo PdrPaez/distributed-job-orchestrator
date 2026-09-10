@@ -3,8 +3,10 @@ from fastapi.testclient import TestClient
 
 
 def test_health_endpoint() -> None:
-    response = TestClient(app).get("/health")
+    with TestClient(app) as client:
+        response = client.get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert set(response.json()) == {"status", "database", "redis"}
+    assert response.json()["database"] == "ok"
 
