@@ -116,7 +116,8 @@ def get_stats(db: Session = Depends(get_db)) -> StatsResponse:
     counts = {status.value: 0 for status in JobStatus}
     rows = db.execute(select(Job.status, func.count()).group_by(Job.status)).all()
     for job_status, count in rows:
-        counts[job_status.value] = count
+        status_value = job_status.value if isinstance(job_status, JobStatus) else job_status
+        counts[status_value] = count
     return StatsResponse(**counts, total=sum(counts.values()))
 
 

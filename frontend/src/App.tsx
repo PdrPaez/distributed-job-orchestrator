@@ -43,6 +43,7 @@ export function App() {
         const data = (await response.json()) as Stats;
         if (active) setStats(data);
         await loadJobs();
+        if (active) setError(null);
       } catch (reason) {
         if (active) setError(reason instanceof Error ? reason.message : "Unable to load stats");
       }
