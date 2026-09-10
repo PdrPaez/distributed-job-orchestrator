@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -74,14 +74,26 @@ def create_job(
 
 
 def claim_job(session: Session, job: Job, task_id: str | None = None) -> bool:
-    if job.status not in {JobStatus.QUEUED, JobStatus.RETRYING}:
+    now = datetime.now(UTC)
+    result = session.execute(
+        update(Job)
+        .where(
+            Job.id == job.id,
+            Job.status.in_([JobStatus.QUEUED, JobStatus.RETRYING]),
+        )
+        .values(
+            status=JobStatus.RUNNING,
+            attempt_count=Job.attempt_count + 1,
+            started_at=now,
+            completed_at=None,
+            celery_task_id=task_id,
+            updated_at=now,
+        )
+    )
+    if result.rowcount != 1:
+        session.rollback()
         return False
-    job.status = transition(job.status, JobStatus.RUNNING)
-    job.attempt_count += 1
-    job.started_at = datetime.now(UTC)
-    job.completed_at = None
-    job.celery_task_id = task_id
-    job.updated_at = datetime.now(UTC)
+    session.refresh(job)
     add_event(session, job, "worker_started", f"Worker started attempt {job.attempt_count}")
     session.commit()
     return True
