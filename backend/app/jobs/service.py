@@ -2,14 +2,14 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.jobs.handlers import JOB_REGISTRY
 from app.jobs.state import transition, validate_progress
-from app.models.job import Job, JobEvent, JobStatus
+from app.models.job import Job, JobEvent, JobStatus, utc_now
 
 
 def add_event(
@@ -19,8 +19,19 @@ def add_event(
     message: str,
     metadata: dict[str, Any] | None = None,
 ) -> JobEvent:
-    event = JobEvent(job_id=job.id, event_type=event_type, message=message, event_metadata=metadata)
+    event = JobEvent(
+        job_id=job.id,
+        event_type=event_type,
+        message=message,
+        timestamp=utc_now(),
+        event_metadata=metadata,
+        sequence=(
+            session.scalar(select(func.max(JobEvent.sequence)).where(JobEvent.job_id == job.id)) or 0
+        )
+        + 1,
+    )
     session.add(event)
+    session.flush()
     return event
 
 

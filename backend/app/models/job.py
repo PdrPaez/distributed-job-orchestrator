@@ -60,6 +60,7 @@ class JobEvent(Base):
     event_type: Mapped[str] = mapped_column(String(64), nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False)
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    sequence: Mapped[int | None] = mapped_column(Integer, nullable=True)
     event_metadata: Mapped[dict[str, Any] | None] = mapped_column("metadata", JSON, nullable=True)
 
     job: Mapped[Job] = relationship(back_populates="events")

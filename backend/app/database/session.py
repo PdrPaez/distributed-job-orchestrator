@@ -1,7 +1,7 @@
 from collections.abc import Generator
 from pathlib import Path
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from sqlalchemy.pool import NullPool
 
@@ -53,4 +53,8 @@ def init_db() -> None:
     from app.models import Job, JobEvent  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
+    columns = {column["name"] for column in inspect(engine).get_columns("job_events")}
+    if "sequence" not in columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE job_events ADD COLUMN sequence INTEGER"))
 

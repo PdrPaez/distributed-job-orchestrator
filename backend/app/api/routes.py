@@ -80,7 +80,9 @@ def get_job_events(job_id: UUID, db: Session = Depends(get_db)) -> list[JobEvent
     if not db.get(Job, job_id):
         raise HTTPException(status_code=404, detail="Job not found")
     events = db.scalars(
-        select(JobEvent).where(JobEvent.job_id == job_id).order_by(JobEvent.timestamp, JobEvent.id)
+        select(JobEvent)
+        .where(JobEvent.job_id == job_id)
+        .order_by(JobEvent.timestamp, JobEvent.sequence, JobEvent.id)
     ).all()
     return [JobEventResponse.model_validate(event) for event in events]
 

@@ -1,4 +1,4 @@
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
@@ -168,7 +168,7 @@ def test_unstable_job_retries_dead_letters_and_manual_retry_succeeds(monkeypatch
 def test_job_events_and_metrics_are_exposed(monkeypatch) -> None:
     init_db()
     monkeypatch.setattr(execute_job, "delay", lambda job_id: type("Task", (), {"id": "test-task"})())
-    key = "test-events-metrics"
+    key = f"test-events-metrics-{uuid4()}"
     with TestClient(app) as client:
         response = client.post(
             "/api/jobs",
