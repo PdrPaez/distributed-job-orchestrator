@@ -23,8 +23,13 @@ router = APIRouter()
 def _duration(job: Job) -> float | None:
     if not job.started_at:
         return None
+    started_at = job.started_at
+    if started_at.tzinfo is None:
+        started_at = started_at.replace(tzinfo=UTC)
     end = job.completed_at or datetime.now(UTC)
-    return max(0.0, (end - job.started_at).total_seconds())
+    if end.tzinfo is None:
+        end = end.replace(tzinfo=UTC)
+    return max(0.0, (end - started_at).total_seconds())
 
 
 def _response(job: Job) -> JobResponse:

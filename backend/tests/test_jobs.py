@@ -1,8 +1,11 @@
+from datetime import UTC, datetime
+from types import SimpleNamespace
 from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
+from app.api.routes import _duration
 from app.database.session import SessionLocal, init_db
 from app.jobs.handlers import (
     BatchTransformPayload,
@@ -228,3 +231,10 @@ def test_manual_retry_rejects_non_terminal_job(monkeypatch) -> None:
         assert job is not None
         session.delete(job)
         session.commit()
+
+
+def test_duration_handles_sqlite_naive_timestamps() -> None:
+    now = datetime.now(UTC).replace(tzinfo=None)
+    job = SimpleNamespace(started_at=now, completed_at=now)
+
+    assert _duration(job) == 0
