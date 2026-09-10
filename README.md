@@ -276,6 +276,10 @@ npm run build
 npm audit --audit-level=high
 ```
 
+### GitHub delivery flow
+
+Every push and pull request runs the GitHub Actions CI workflow. It validates the backend with Ruff and pytest, builds and audits the frontend, and executes the real API/Redis/worker smoke flow. After a successful `main` run, the CD workflow packages the backend source, frontend production bundle, README, changelog, and license as a downloadable GitHub Actions artifact.
+
 ### Real distributed smoke test
 
 With Redis, the API, and at least one worker running from the repository root:
