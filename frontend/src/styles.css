@@ -14,4 +14,20 @@ h1 { font-size: clamp(2.5rem, 7vw, 5rem); line-height: 0.95; margin: 18px 0; max
 .card span { color: #9baabd; text-transform: capitalize; }
 .card strong { font-size: 2rem; }
 .error { color: #fda4af; }
+.workspace { display: grid; grid-template-columns: minmax(230px, 0.8fr) minmax(280px, 1fr) minmax(280px, 1.2fr); gap: 14px; margin-top: 18px; }
+.panel { background: #111922; border: 1px solid #263545; border-radius: 14px; padding: 18px; min-width: 0; }
+h2 { margin-top: 0; }
+label { color: #9baabd; display: grid; gap: 7px; margin: 14px 0; }
+input, textarea, select { background: #0c1117; color: #e8eef5; border: 1px solid #35475a; border-radius: 8px; padding: 10px; font: inherit; }
+button { background: #67e8f9; color: #061116; border: 0; border-radius: 8px; cursor: pointer; padding: 10px 14px; font-weight: 700; }
+.job-row { background: #18232e; color: #e8eef5; border: 1px solid #2d3c4d; width: 100%; display: flex; justify-content: space-between; text-align: left; margin: 8px 0; }
+.job-row.selected { border-color: #67e8f9; }
+.job-row span { display: grid; gap: 5px; }
+small, .muted { color: #8494a8; }
+progress { accent-color: #67e8f9; width: 100px; }
+.detail-id { overflow: hidden; text-overflow: ellipsis; color: #8494a8; }
+pre { background: #0c1117; padding: 12px; border-radius: 8px; overflow: auto; }
+.event { border-left: 2px solid #67e8f9; padding-left: 10px; }
+.event small { display: block; margin-top: 5px; }
+@media (max-width: 900px) { .workspace { grid-template-columns: 1fr; } }
 
