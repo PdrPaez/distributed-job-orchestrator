@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "distributed-job-orchestrator"
+version = "0.1.0"
+description = "Reference distributed job orchestrator using FastAPI, Celery, Redis, and SQLite"
+requires-python = ">=3.12"
+dependencies = [
+  "celery[redis]>=5.4,<6",
+  "fastapi>=0.115,<1",
+  "prometheus-client>=0.21,<1",
+  "pydantic-settings>=2.6,<3",
+  "sqlalchemy>=2.0,<3",
+  "uvicorn[standard]>=0.32,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "httpx>=0.27,<1",
+  "pytest>=8.3,<9",
+  "pytest-asyncio>=0.24,<1",
+  "ruff>=0.8,<1",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
