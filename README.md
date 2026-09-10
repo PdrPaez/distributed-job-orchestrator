@@ -16,6 +16,16 @@ It combines FastAPI, Celery, Redis, SQLite, and a React dashboard. SQLite is the
 - **Operational visibility:** structured JSON logs, health checks, durable Prometheus metrics, job durations, and broker/database status.
 - **Quality gates:** backend tests and Ruff, frontend TypeScript validation and production build, npm audit, CI, and a real Redis/Celery smoke test.
 
+## Screenshots
+
+The dashboard exposes the operational state of the orchestrator at a glance: queue pressure, worker outcomes, recent jobs, and the job creation workflow.
+
+![Dashboard overview](docs/assets/dashboard-overview.png)
+
+The API reference is available through the generated OpenAPI interface and documents the endpoints used by the dashboard and worker workflow.
+
+![API reference](docs/assets/api-reference.png)
+
 ## Architecture
 
 ```mermaid
