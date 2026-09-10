@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import router
 from app.config import get_settings
 from app.database.session import init_db
+from app.observability.logging import configure_logging
 
 app = FastAPI(
     title="Distributed Job Orchestrator",
@@ -23,6 +24,7 @@ app.include_router(router)
 
 @app.on_event("startup")
 def startup() -> None:
+    configure_logging()
     init_db()
 
 

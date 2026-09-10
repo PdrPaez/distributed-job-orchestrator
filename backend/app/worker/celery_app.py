@@ -1,8 +1,10 @@
 from celery import Celery
 
 from app.config import get_settings
+from app.observability.logging import configure_logging
 
 settings = get_settings()
+configure_logging()
 celery_app = Celery(
     "distributed_job_orchestrator",
     broker=settings.celery_broker_url,

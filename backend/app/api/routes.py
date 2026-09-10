@@ -140,6 +140,9 @@ def metrics(db: Session = Depends(get_db)) -> object:
         "djo_job_retries_total": Gauge("djo_job_retries_total", "Job retries", registry=registry),
         "djo_jobs_queued": Gauge("djo_jobs_queued", "Queued jobs", registry=registry),
         "djo_jobs_running": Gauge("djo_jobs_running", "Running jobs", registry=registry),
+        "djo_job_execution_duration_seconds": Gauge(
+            "djo_job_execution_duration_seconds", "Average completed job duration", registry=registry
+        ),
     }
     gauges["djo_jobs_created_total"].set(db.scalar(select(func.count()).select_from(Job)) or 0)
     event_counts = dict(
@@ -155,6 +158,12 @@ def metrics(db: Session = Depends(get_db)) -> object:
     status_counts = dict(db.execute(select(Job.status, func.count()).group_by(Job.status)).all())
     gauges["djo_jobs_queued"].set(status_counts.get(JobStatus.QUEUED, 0))
     gauges["djo_jobs_running"].set(status_counts.get(JobStatus.RUNNING, 0))
+    durations = [
+        (job.completed_at - job.started_at).total_seconds()
+        for job in db.scalars(select(Job)).all()
+        if job.completed_at and job.started_at
+    ]
+    gauges["djo_job_execution_duration_seconds"].set(sum(durations) / len(durations) if durations else 0)
     from fastapi.responses import Response
 
     return Response(generate_latest(registry), media_type=CONTENT_TYPE_LATEST)
