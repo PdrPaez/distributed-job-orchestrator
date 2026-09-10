@@ -2,14 +2,14 @@
 
 An intentionally small reference application for reliable asynchronous jobs with FastAPI, Celery, Redis, SQLite, and a React dashboard.
 
-The implementation follows the repository specification in `Distributed Job Orchestrator — Complete Codex Implementation Specification.md`.
-
 ## Run locally
 
-Requirements: Python 3.12+, Node 20+, npm, and Docker Desktop for Redis.
+Requirements: Python 3.12+, Node 20+, npm, and Redis 7+ running locally.
 
 ```bash
-docker compose up -d redis
+# Start Redis using the service manager for your operating system.
+# Verify it is reachable before starting the API:
+redis-cli ping
 
 cd backend
 python -m pip install -e ".[dev]"
@@ -41,33 +41,8 @@ python scripts/smoke_test.py
 
 The smoke script intentionally requires the external Redis service; the normal automated suite uses direct task execution and does not pretend to reproduce broker delivery.
 
-An optional full Compose run is also available after the local Redis flow is understood:
-
-```bash
-docker compose --profile full up --build --scale worker=3
-```
-
-The worker service intentionally has no fixed container name so Compose can scale it.
-
-### Docker Desktop on Windows
-
-Docker Desktop must be configured to use the WSL 2 engine. If `docker info` cannot
-connect to `dockerDesktopLinuxEngine`, verify that WSL has a Linux distribution:
-
-```powershell
-wsl --status
-wsl --list --verbose
-```
-
-If the list is empty, install a distribution from an elevated PowerShell and
-restart Docker Desktop:
-
-```powershell
-wsl --install -d Ubuntu
-```
-
-The real smoke test is intentionally not replaced with an in-process Redis mock;
-it must run against Redis and Celery workers.
+The real smoke test intentionally uses an actual Redis server; it is not replaced
+with an in-process mock.
 
 ## Demonstration
 
