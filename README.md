@@ -1,5 +1,7 @@
 # Distributed Job Orchestrator
 
+[![CI](https://github.com/PdrPaez/distributed-job-orchestrator/actions/workflows/ci.yml/badge.svg)](https://github.com/PdrPaez/distributed-job-orchestrator/actions/workflows/ci.yml)
+
 Distributed Job Orchestrator is a local-first job processing platform for submitting, executing, observing, and recovering asynchronous work with explicit delivery semantics.
 
 It combines FastAPI, Celery, Redis, SQLite, and a React dashboard. SQLite is the durable source of truth for jobs and their event timelines; Redis transports Celery messages; workers reload authoritative state before claiming work. The result is a small system that is easy to run locally while still making retries, duplicate delivery, persistence, and operator recovery visible.
